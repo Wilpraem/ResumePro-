@@ -1,0 +1,57 @@
+def get_user_data():
+    print("Добро пожаловать в ResumePro!")
+    name = input("Введите ваше имя: ")
+    profession = input("Введите вашу профессию: ")
+    experience = input("Опишите ваш опыт работы: ")
+    skills = input("Введите ваши ключевые навыки (через запятую): ")
+    education = input("Образование: ")
+    contact = input("Контактная информация (телефон, email): ")
+    
+    return {
+        "Имя": name,
+        "Профессия": profession,
+        "Опыт работы": experience,
+        "Навыки": skills,
+        "Образование": education,
+        "Контакты": contact
+    }
+
+def generate_resume(data):
+    resume = f"""
+===========================
+         РЕЗЮМЕ
+===========================
+
+Имя: {data['Имя']}
+Профессия: {data['Профессия']}
+
+ОПЫТ РАБОТЫ:
+{data['Опыт работы']}
+
+НАВЫКИ:
+{data['Навыки']}
+
+ОБРАЗОВАНИЕ:
+{data['Образование']}
+
+КОНТАКТЫ:
+{data['Контакты']}
+
+===========================
+    Спасибо за использование ResumePro!
+===========================
+"""
+    return resume
+
+def save_resume(text, filename="resume.txt"):
+    with open(filename, "w", encoding="utf-8") as file:
+        file.write(text)
+    print(f"✅ Резюме сохранено в файл: {filename}")
+
+def main():
+    user_data = get_user_data()
+    resume_text = generate_resume(user_data)
+    save_resume(resume_text)
+
+if __name__ == "__main__":
+    main()
