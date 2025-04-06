@@ -1,12 +1,54 @@
+import os # Добавим для очистки экрана (опционально)
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt # Для красивых запросов ввода
+from rich.text import Text
+from rich.theme import Theme # Для кастомных стилей (опционально)
+
+# --- Настройка Rich ---
+# Создаем кастомную тему для единообразия (опционально)
+custom_theme = Theme({
+    "info": "dim cyan",
+    "warning": "magenta",
+    "danger": "bold red",
+    "success": "bold green",
+    "prompt_style": "bold yellow",
+    "header": "bold blue on white", # Пример стиля заголовка
+    "section": "bold magenta",
+    "contact": "bold cyan",
+    "filename": "underline green",
+})
+console = Console(theme=custom_theme)
+
+# --- Функции ---
+
+def clear_screen():
+    """Очищает экран консоли для лучшего вида."""
+    # Для Windows 'cls', для Unix-подобных (Linux, macOS) 'clear'
+    os.system('cls' if os.name == 'nt' else 'clear')
+
 def get_user_data():
-    print("Добро пожаловать в ResumePro!")
-    name = input("Введите ваше имя: ")
-    profession = input("Введите вашу профессию: ")
-    experience = input("Опишите ваш опыт работы: ")
-    skills = input("Введите ваши ключевые навыки (через запятую): ")
-    education = input("Образование: ")
-    contact = input("Контактная информация (телефон, email): ")
-    
+    """Собирает данные от пользователя с использованием Rich."""
+    clear_screen()
+    console.print(Panel.fit("[bold cyan]✨ Добро пожаловать в ResumePro! ✨[/bold cyan]", title="Приветствие", border_style="info"))
+    console.print("\nПожалуйста, введите ваши данные:")
+
+    name = Prompt.ask("[prompt_style]📝 Имя[/prompt_style]")
+    profession = Prompt.ask("[prompt_style]💼 Профессия[/prompt_style]")
+
+    console.print("\n[prompt_style]📈 Опишите ваш опыт работы (введите 'END' на новой строке для завершения):[/prompt_style]")
+    experience_lines = []
+    while True:
+        line = input()
+        if line.strip().upper() == 'END':
+            break
+        experience_lines.append(line)
+    experience = "\n".join(experience_lines)
+
+    skills = Prompt.ask("[prompt_style]🛠️ Ключевые навыки (через запятую)[/prompt_style]")
+    education = Prompt.ask("[prompt_style]🎓 Образование[/prompt_style]")
+    contact = Prompt.ask("[prompt_style]📞 Контактная информация (телефон, email)[/prompt_style]")
+
     return {
         "Имя": name,
         "Профессия": profession,
@@ -17,41 +59,65 @@ def get_user_data():
     }
 
 def generate_resume(data):
+    """Генерирует текст резюме из словаря данных."""
+    # Используем f-string, как и раньше, но можно добавить стили rich Text, если нужно
     resume = f"""
-===========================
-         РЕЗЮМЕ
+[header] РЕЗЮМЕ [/header]
+
 ===========================
 
-Имя: {data['Имя']}
-Профессия: {data['Профессия']}
+[section]Имя:[/section] {data['Имя']}
+[section]Профессия:[/section] {data['Профессия']}
 
-ОПЫТ РАБОТЫ:
+[section]ОПЫТ РАБОТЫ:[/section]
 {data['Опыт работы']}
 
-НАВЫКИ:
+[section]НАВЫКИ:[/section]
 {data['Навыки']}
 
-ОБРАЗОВАНИЕ:
+[section]ОБРАЗОВАНИЕ:[/section]
 {data['Образование']}
 
-КОНТАКТЫ:
-{data['Контакты']}
+[section]КОНТАКТЫ:[/section]
+[contact]{data['Контакты']}[/contact]
 
-===========================
-    Спасибо за использование ResumePro!
 ===========================
 """
     return resume
 
 def save_resume(text, filename="resume.txt"):
-    with open(filename, "w", encoding="utf-8") as file:
-        file.write(text)
-    print(f"✅ Резюме сохранено в файл: {filename}")
+    """Сохраняет текст резюме в файл и выводит сообщение Rich."""
+    try:
+        with open(filename, "w", encoding="utf-8") as file:
+            # Rich стили не сохраняются в текстовый файл, сохраняем чистый текст
+            # Для этого создаем Text объект и получаем его plain версию
+            plain_text = Text.from_markup(text).plain
+            file.write(plain_text.strip()) # Убираем лишние пробелы/переносы строк в начале/конце
+        console.print(Panel(f"[success]✅ Резюме успешно сохранено в файл:[/success] [filename]{filename}[/filename]",
+                          title="Сохранение", border_style="success", expand=False))
+    except IOError as e:
+        console.print(Panel(f"[danger]❌ Ошибка сохранения файла {filename}:[/danger] {e}",
+                          title="Ошибка", border_style="danger"))
 
 def main():
+    """Основная функция программы."""
     user_data = get_user_data()
-    resume_text = generate_resume(user_data)
-    save_resume(resume_text)
+    resume_text_markup = generate_resume(user_data) # Текст с разметкой Rich
 
+    clear_screen()
+    console.print(Panel(resume_text_markup, title="📄 Предпросмотр Резюме", border_style="blue", padding=(1, 2)))
+
+    # Спрашиваем подтверждение перед сохранением
+    if Prompt.ask("\n[prompt_style]💾 Сохранить это резюме?[/prompt_style]", choices=["да", "нет"], default="да") == "да":
+        # Предлагаем имя файла
+        default_filename = f"resume_{user_data['Имя'].replace(' ', '_')}.txt"
+        filename = Prompt.ask(f"[prompt_style]Введите имя файла для сохранения[/prompt_style]", default=default_filename)
+        save_resume(resume_text_markup, filename) # Передаем текст с разметкой
+    else:
+        console.print("[warning]⚠️ Сохранение отменено пользователем.[/warning]")
+
+    console.print("\n[info]Спасибо за использование ResumePro![/info]")
+
+# Исправлено: стандартный способ проверки запуска скрипта
 if __name__ == "__main__":
     main()
