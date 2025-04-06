@@ -1,123 +1,203 @@
-import os # Добавим для очистки экрана (опционально)
-from rich.console import Console
-from rich.panel import Panel
-from rich.prompt import Prompt # Для красивых запросов ввода
-from rich.text import Text
-from rich.theme import Theme # Для кастомных стилей (опционально)
+import tkinter as tk
+from tkinter import ttk  # Используем themed Tkinter виджеты
+from tkinter import scrolledtext # Виджет для многострочного текста с прокруткой
+from tkinter import filedialog   # Для диалога сохранения файла
+from tkinter import messagebox   # Для всплывающих сообщений
+import ttkbootstrap as ttkb
+from ttkbootstrap.constants import * # Константы для стилей и состояний
 
-# --- Настройка Rich ---
-# Создаем кастомную тему для единообразия (опционально)
-custom_theme = Theme({
-    "info": "dim cyan",
-    "warning": "magenta",
-    "danger": "bold red",
-    "success": "bold green",
-    "prompt_style": "bold yellow",
-    "header": "bold blue on white", # Пример стиля заголовка
-    "section": "bold magenta",
-    "contact": "bold cyan",
-    "filename": "underline green",
-})
-console = Console(theme=custom_theme)
+# --- Функции ядра (слегка адаптированные) ---
 
-# --- Функции ---
+def generate_resume_text(data):
+    """
+    Генерирует текст резюме из словаря данных.
+    Убрана разметка rich, так как она не нужна для GUI и файла.
+    """
+    # Простая проверка на наличие ключей, чтобы избежать ошибок
+    name = data.get('Имя', '')
+    profession = data.get('Профессия', '')
+    experience = data.get('Опыт работы', '')
+    skills = data.get('Навыки', '')
+    education = data.get('Образование', '')
+    contact = data.get('Контакты', '')
 
-def clear_screen():
-    """Очищает экран консоли для лучшего вида."""
-    # Для Windows 'cls', для Unix-подобных (Linux, macOS) 'clear'
-    os.system('cls' if os.name == 'nt' else 'clear')
-
-def get_user_data():
-    """Собирает данные от пользователя с использованием Rich."""
-    clear_screen()
-    console.print(Panel.fit("[bold cyan]✨ Добро пожаловать в ResumePro! ✨[/bold cyan]", title="Приветствие", border_style="info"))
-    console.print("\nПожалуйста, введите ваши данные:")
-
-    name = Prompt.ask("[prompt_style]📝 Имя[/prompt_style]")
-    profession = Prompt.ask("[prompt_style]💼 Профессия[/prompt_style]")
-
-    console.print("\n[prompt_style]📈 Опишите ваш опыт работы (введите 'END' на новой строке для завершения):[/prompt_style]")
-    experience_lines = []
-    while True:
-        line = input()
-        if line.strip().upper() == 'END':
-            break
-        experience_lines.append(line)
-    experience = "\n".join(experience_lines)
-
-    skills = Prompt.ask("[prompt_style]🛠️ Ключевые навыки (через запятую)[/prompt_style]")
-    education = Prompt.ask("[prompt_style]🎓 Образование[/prompt_style]")
-    contact = Prompt.ask("[prompt_style]📞 Контактная информация (телефон, email)[/prompt_style]")
-
-    return {
-        "Имя": name,
-        "Профессия": profession,
-        "Опыт работы": experience,
-        "Навыки": skills,
-        "Образование": education,
-        "Контакты": contact
-    }
-
-def generate_resume(data):
-    """Генерирует текст резюме из словаря данных."""
-    # Используем f-string, как и раньше, но можно добавить стили rich Text, если нужно
     resume = f"""
-[header] РЕЗЮМЕ [/header]
-
+РЕЗЮМЕ
 ===========================
 
-[section]Имя:[/section] {data['Имя']}
-[section]Профессия:[/section] {data['Профессия']}
+Имя: {name}
+Профессия: {profession}
 
-[section]ОПЫТ РАБОТЫ:[/section]
-{data['Опыт работы']}
+ОПЫТ РАБОТЫ:
+{experience}
 
-[section]НАВЫКИ:[/section]
-{data['Навыки']}
+НАВЫКИ:
+{skills}
 
-[section]ОБРАЗОВАНИЕ:[/section]
-{data['Образование']}
+ОБРАЗОВАНИЕ:
+{education}
 
-[section]КОНТАКТЫ:[/section]
-[contact]{data['Контакты']}[/contact]
+КОНТАКТЫ:
+{contact}
 
 ===========================
 """
-    return resume
+    return resume.strip() # Убираем лишние пробелы в начале/конце
 
-def save_resume(text, filename="resume.txt"):
-    """Сохраняет текст резюме в файл и выводит сообщение Rich."""
-    try:
-        with open(filename, "w", encoding="utf-8") as file:
-            # Rich стили не сохраняются в текстовый файл, сохраняем чистый текст
-            # Для этого создаем Text объект и получаем его plain версию
-            plain_text = Text.from_markup(text).plain
-            file.write(plain_text.strip()) # Убираем лишние пробелы/переносы строк в начале/конце
-        console.print(Panel(f"[success]✅ Резюме успешно сохранено в файл:[/success] [filename]{filename}[/filename]",
-                          title="Сохранение", border_style="success", expand=False))
-    except IOError as e:
-        console.print(Panel(f"[danger]❌ Ошибка сохранения файла {filename}:[/danger] {e}",
-                          title="Ошибка", border_style="danger"))
+# --- Класс приложения ---
 
-def main():
-    """Основная функция программы."""
-    user_data = get_user_data()
-    resume_text_markup = generate_resume(user_data) # Текст с разметкой Rich
+class ResumeApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("ResumePro Modern")
+        # Устанавливаем размер окна (можно настроить)
+        self.root.geometry("700x750")
 
-    clear_screen()
-    console.print(Panel(resume_text_markup, title="📄 Предпросмотр Резюме", border_style="blue", padding=(1, 2)))
+        # --- Создание виджетов ---
+        self.create_widgets()
 
-    # Спрашиваем подтверждение перед сохранением
-    if Prompt.ask("\n[prompt_style]💾 Сохранить это резюме?[/prompt_style]", choices=["да", "нет"], default="да") == "да":
-        # Предлагаем имя файла
+    def create_widgets(self):
+        # Используем Frame для лучшей организации
+        main_frame = ttk.Frame(self.root, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Заголовок
+        title_label = ttk.Label(main_frame, text="✨ ResumePro ✨", font=("Helvetica", 18, "bold"), bootstyle=PRIMARY)
+        title_label.pack(pady=(0, 20)) # Отступ снизу
+
+        # --- Поля ввода ---
+        input_frame = ttk.Frame(main_frame)
+        input_frame.pack(fill=tk.X, pady=10)
+
+        # Используем grid для размещения лейблов и полей ввода
+        input_frame.columnconfigure(1, weight=1) # Позволяем полю ввода растягиваться
+
+        # Имя
+        ttk.Label(input_frame, text="Имя:", width=15).grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        self.entry_name = ttk.Entry(input_frame, bootstyle=INFO, width=50)
+        self.entry_name.grid(row=0, column=1, padx=5, pady=5, sticky=tk.EW)
+
+        # Профессия
+        ttk.Label(input_frame, text="Профессия:", width=15).grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        self.entry_profession = ttk.Entry(input_frame, bootstyle=INFO, width=50)
+        self.entry_profession.grid(row=1, column=1, padx=5, pady=5, sticky=tk.EW)
+
+        # Опыт работы (многострочный)
+        ttk.Label(input_frame, text="Опыт работы:", width=15).grid(row=2, column=0, padx=5, pady=5, sticky=tk.NW) # NW = NorthWest (верхний левый угол)
+        self.text_experience = scrolledtext.ScrolledText(input_frame, height=10, width=50, wrap=tk.WORD, relief=tk.SOLID, borderwidth=1)
+        # Применяем стиль к рамке ScrolledText (немного хак, т.к. ttkbootstrap напрямую не стилизует его)
+        style = ttkb.Style()
+        border_color = style.colors.info # Берем цвет стиля INFO
+        self.text_experience.configure(bd=1, relief="solid", highlightthickness=1, highlightcolor=border_color, highlightbackground=border_color)
+        self.text_experience.grid(row=2, column=1, padx=5, pady=5, sticky=tk.EW)
+
+        # Навыки
+        ttk.Label(input_frame, text="Навыки (через ,):", width=15).grid(row=3, column=0, padx=5, pady=5, sticky=tk.W)
+        self.entry_skills = ttk.Entry(input_frame, bootstyle=INFO, width=50)
+        self.entry_skills.grid(row=3, column=1, padx=5, pady=5, sticky=tk.EW)
+
+        # Образование
+        ttk.Label(input_frame, text="Образование:", width=15).grid(row=4, column=0, padx=5, pady=5, sticky=tk.W)
+        self.entry_education = ttk.Entry(input_frame, bootstyle=INFO, width=50)
+        self.entry_education.grid(row=4, column=1, padx=5, pady=5, sticky=tk.EW)
+
+        # Контакты
+        ttk.Label(input_frame, text="Контакты:", width=15).grid(row=5, column=0, padx=5, pady=5, sticky=tk.W)
+        self.entry_contact = ttk.Entry(input_frame, bootstyle=INFO, width=50)
+        self.entry_contact.grid(row=5, column=1, padx=5, pady=5, sticky=tk.EW)
+
+        # --- Кнопки ---
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(pady=20)
+
+        generate_button = ttk.Button(button_frame, text="📄 Сгенерировать и Сохранить", command=self.generate_and_save, bootstyle=SUCCESS)
+        generate_button.pack(side=tk.LEFT, padx=10)
+
+        clear_button = ttk.Button(button_frame, text="🧹 Очистить поля", command=self.clear_fields, bootstyle=WARNING)
+        clear_button.pack(side=tk.LEFT, padx=10)
+
+        # --- Область предпросмотра (опционально, но полезно) ---
+        preview_frame = ttk.LabelFrame(main_frame, text="Предпросмотр", padding=10, bootstyle=INFO)
+        preview_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+
+        self.text_preview = scrolledtext.ScrolledText(preview_frame, height=15, wrap=tk.WORD, state=tk.DISABLED) # Изначально неактивна для редактирования
+        self.text_preview.pack(fill=tk.BOTH, expand=True)
+
+
+    def get_user_data_from_gui(self):
+        """Собирает данные из полей ввода GUI."""
+        # .strip() убирает лишние пробелы по краям
+        # .get("1.0", tk.END + "-1c") читает весь текст из Text виджета
+        data = {
+            "Имя": self.entry_name.get().strip(),
+            "Профессия": self.entry_profession.get().strip(),
+            "Опыт работы": self.text_experience.get("1.0", tk.END + "-1c").strip(),
+            "Навыки": self.entry_skills.get().strip(),
+            "Образование": self.entry_education.get().strip(),
+            "Контакты": self.entry_contact.get().strip(),
+        }
+        return data
+
+    def clear_fields(self):
+        """Очищает все поля ввода."""
+        self.entry_name.delete(0, tk.END)
+        self.entry_profession.delete(0, tk.END)
+        self.text_experience.delete("1.0", tk.END)
+        self.entry_skills.delete(0, tk.END)
+        self.entry_education.delete(0, tk.END)
+        self.entry_contact.delete(0, tk.END)
+        # Очищаем предпросмотр
+        self.text_preview.config(state=tk.NORMAL) # Включаем редактирование
+        self.text_preview.delete("1.0", tk.END)
+        self.text_preview.config(state=tk.DISABLED) # Выключаем редактирование
+        messagebox.showinfo("Очистка", "Поля очищены.")
+
+
+    def generate_and_save(self):
+        """Собирает данные, генерирует резюме, показывает предпросмотр и предлагает сохранить."""
+        user_data = self.get_user_data_from_gui()
+
+        # Простая проверка, что хотя бы имя введено
+        if not user_data["Имя"]:
+            messagebox.showwarning("Нет данных", "Пожалуйста, введите хотя бы ваше имя.")
+            return
+
+        # Генерируем текст резюме
+        resume_content = generate_resume_text(user_data)
+
+        # Отображаем в предпросмотре
+        self.text_preview.config(state=tk.NORMAL) # Разрешаем редактирование для вставки
+        self.text_preview.delete("1.0", tk.END)   # Очищаем предыдущий текст
+        self.text_preview.insert(tk.END, resume_content) # Вставляем новый
+        self.text_preview.config(state=tk.DISABLED) # Снова запрещаем редактирование
+
+        # Предлагаем сохранить файл
+        # Формируем имя файла по умолчанию
         default_filename = f"resume_{user_data['Имя'].replace(' ', '_')}.txt"
-        filename = Prompt.ask(f"[prompt_style]Введите имя файла для сохранения[/prompt_style]", default=default_filename)
-        save_resume(resume_text_markup, filename) # Передаем текст с разметкой
-    else:
-        console.print("[warning]⚠️ Сохранение отменено пользователем.[/warning]")
+        filepath = filedialog.asksaveasfilename(
+            title="Сохранить резюме как...",
+            initialfile=default_filename,
+            defaultextension=".txt",
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")]
+        )
 
-    console.print("\n[info]Спасибо за использование ResumePro![/info]")
+        # Если пользователь выбрал файл (не нажал "Отмена")
+        if filepath:
+            try:
+                with open(filepath, "w", encoding="utf-8") as file:
+                    file.write(resume_content)
+                messagebox.showinfo("Успех!", f"✅ Резюме успешно сохранено в файл:\n{filepath}")
+            except IOError as e:
+                messagebox.showerror("Ошибка сохранения", f"Не удалось сохранить файл:\n{e}")
+        else:
+            messagebox.showinfo("Сохранение отменено", "Файл не был сохранен.")
 
-# Исправлено: стандартный способ проверки запуска скрипта
+
+# --- Запуск приложения ---
 if __name__ == "__main__":
-    main()
+    # Используем ttkb.Window вместо tk.Tk() для тем
+    # Доступные темы: cosmo, flatly, journal, litera, lumen, minty, pulse, sandstone,
+    # united, yeti, cyborg, darkly, solar, superhero (темные)
+    root = ttkb.Window(themename="superhero") # Попробуй разные темы!
+    app = ResumeApp(root)
+    root.mainloop()
